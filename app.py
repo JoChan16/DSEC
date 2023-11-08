@@ -7,28 +7,62 @@ import plotly.express as px
 st.title('IR Derivatives Analytics Dashboard')
 
 
-# Initialize session state to store messages if it doesn't exist
-if 'messages' not in st.session_state:
+import streamlit as st
+import openai
+import os
+
+st.title("ChatGPT-like clone")
+
+# Set OpenAI API key from Streamlit secrets
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+
+# Set a default model
+if "openai_model" not in st.session_state:
+    st.session_state["openai_model"] = "gpt-3.5-turbo"
+
+# Initialize chat history
+if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Function to display messages
-def display_messages():
-    for message in st.session_state.messages:
-        with st.chat_message(message['user']):
-            st.write(message['text'])
-            if message['type'] == 'chart':
-                st.line_chart(np.random.randn(10, 2))
+# Display chat messages from history on app rerun
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Chat input
-prompt = st.chat_input("Say something")
-if prompt:
-    # Here you would process the prompt and determine the response
-    # For the sake of the example, we assume that every prompt is added as a user message
-    st.session_state.messages.append({"user": "user", "text": prompt, "type": "text"})
-    # Display updated messages
-    display_messages()
-    # You might want to clear the prompt here, or handle the state differently
-    prompt = ""
+# Accept user input
+if prompt := st.chat_input("What is up?"):
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    # Display user message in chat message container
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    # Display assistant response in chat message container
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
+
+client = openai.OpenAI()
+
+completion = client.chat.completions.create(
+  model="gpt-3.5-turbo",
+  messages=[
+    {"role": "system", "content": "You are a poetic assistant, skilled in explaining complex programming concepts with creative flair."},
+    {"role": "user", "content": "Compose a poem that explains the concept of recursion in programming."}
+  ]
+)
+# for response in client.chat.completions.create(
+#         model=st.session_state["openai_model"],
+#         messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
+#         stream=True,
+#     ):
+#         full_response += response['choices'][0]['delta'].get("content", "")
+#         message_placeholder.markdown(full_response + "▌")
+
+full_response = client.chat.completions.create(
+        model=st.session_state["openai_model"],
+        messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]).choices[0].message.content
+
+st.session_state.messages.append({"role": "assistant", "content": full_response})
 
 # Display chat messages
 for username, message in reversed(st.session_state.messages):
